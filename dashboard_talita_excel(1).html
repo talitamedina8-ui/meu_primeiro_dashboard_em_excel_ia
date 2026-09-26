@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Talita | Inteligência Artificial</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#182230;--muted:#6b7280;--primary:#5b5bd6;--primary2:#7c3aed;--border:#e7eaf0}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(135deg,#f7f8ff,#eef4ff);color:var(--text)}
+.container{max-width:1180px;margin:auto;padding:32px 20px}
+.header{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:24px;padding:30px;box-shadow:0 14px 35px #4338ca25}
+.header h1{margin:0 0 8px;font-size:30px}.header p{margin:5px 0;opacity:.92}
+.meta{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px;font-size:14px}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:25px 0}
+button,.file-label{border:0;border-radius:12px;padding:13px 20px;font-weight:700;cursor:pointer;transition:.2s}
+.file-label{background:#111827;color:#fff;display:inline-block}.file-label:hover,button:hover{transform:translateY(-1px)}
+input[type=file]{display:none}.hint{color:var(--muted);font-size:14px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 8px 25px #1f293708}
+.card .label{font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.value{font-size:34px;font-weight:800;margin-top:8px}.sub{font-size:13px;color:var(--muted);margin-top:5px}
+.chart-card{margin-top:22px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:22px}
+.chart-wrap{height:370px}
+.status{margin-top:14px;padding:12px 14px;background:#f8fafc;border-radius:10px;color:#475569;font-size:14px}
+.footer{text-align:center;color:var(--muted);font-size:13px;margin:25px}
+@media(max-width:760px){.cards{grid-template-columns:1fr}.header h1{font-size:24px}.container{padding:18px 12px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <h1>Dashboard de Importação Excel</h1>
+    <p>Visualização e resumo dos dados importados</p>
+    <div class="meta">
+      <span><strong>Aluno:</strong> Talita</span>
+      <span><strong>Curso:</strong> Inteligência Artificial</span>
+      <span><strong>Data:</strong> 26/09/2026</span>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <label class="file-label" for="excelFile">📥 Importar Excel</label>
+    <input id="excelFile" type="file" accept=".xlsx,.xls,.csv">
+    <span class="hint">Selecione um arquivo .xlsx, .xls ou .csv para atualizar o dashboard.</span>
+  </section>
+
+  <section class="cards">
+    <div class="card"><div class="label">Linhas importadas</div><div class="value" id="statRows">0</div><div class="sub">Registros encontrados</div></div>
+    <div class="card"><div class="label">Colunas</div><div class="value" id="statCols">0</div><div class="sub">Campos na planilha</div></div>
+    <div class="card"><div class="label">Valores numéricos</div><div class="value" id="statNums">0</div><div class="sub">Células numéricas</div></div>
+  </section>
+
+  <section class="chart-card">
+    <h2>Gráfico das 3 estatísticas</h2>
+    <div class="chart-wrap"><canvas id="statsChart"></canvas></div>
+    <div class="status" id="status">Nenhum arquivo importado. Os valores acima serão atualizados automaticamente.</div>
+  </section>
+
+  <div class="footer">Dashboard acadêmico • Talita • Inteligência Artificial • 26/09/2026</div>
+</div>
+
+<script>
+let chart;
+const ctx=document.getElementById('statsChart');
+function renderChart(rows=0,cols=0,nums=0){
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{type:'bar',data:{labels:['Linhas','Colunas','Valores numéricos'],datasets:[{
+    label:'Estatísticas',data:[rows,cols,nums],borderWidth:1,borderRadius:8
+  }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+}
+renderChart();
+
+document.getElementById('excelFile').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    try{
+      const wb=XLSX.read(evt.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      if(!data.length){throw new Error('A planilha está vazia.');}
+      const headers=data[0]||[];
+      const rows=data.slice(1).filter(r=>r.some(v=>v!==null&&v!==''));
+      const nums=rows.flat().filter(v=>typeof v==='number'&&!Number.isNaN(v)).length;
+      document.getElementById('statRows').textContent=rows.length.toLocaleString('pt-BR');
+      document.getElementById('statCols').textContent=headers.filter(v=>v!==null&&v!=='').length.toLocaleString('pt-BR');
+      document.getElementById('statNums').textContent=nums.toLocaleString('pt-BR');
+      renderChart(rows.length,headers.filter(v=>v!==null&&v!=='').length,nums);
+      document.getElementById('status').textContent=`Arquivo "${file.name}" importado com sucesso. Planilha analisada: ${wb.SheetNames[0]}.`;
+    }catch(err){document.getElementById('status').textContent='Erro ao importar: '+err.message;}
+  };
+  reader.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>
